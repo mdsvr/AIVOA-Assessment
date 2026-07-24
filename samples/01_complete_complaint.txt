@@ -1,0 +1,30 @@
+From: John Mitchell, Regional QA Manager, MedSupply Distributors
+Date: July 18, 2026
+
+Subject: Product Quality Complaint - Amoxicillin Capsules 500mg
+
+We are writing to report a quality issue identified during a routine inspection of a
+recent shipment.
+
+Product: Amoxicillin Capsules USP, 500mg
+Batch/Lot Number: AMX-2026-0417
+Manufacturing Date: 2026-03-10
+Expiry Date: 2028-03-09
+Quantity Affected: Approximately 1200 capsules (12 bottles of 100)
+
+On July 15, 2026, our warehouse staff noticed that a portion of the capsules in Batch
+AMX-2026-0417 showed visible discoloration, appearing yellow-brown instead of the
+expected white/light-yellow color. Several capsules were also found to be cracked or
+partially open, with powder leaking inside the bottle.
+
+This is a Product Quality Defect complaint. Given the visible physical degradation, we
+consider this a Major severity issue with High priority, as it may indicate a stability
+or manufacturing process failure affecting the entire batch.
+
+Please investigate and advise on further shipments from this batch. Photos are
+available on request.
+
+Regards,
+John Mitchell
+Regional QA Manager
+MedSupply Distributors

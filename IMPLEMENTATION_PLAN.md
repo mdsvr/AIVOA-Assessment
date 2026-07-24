@@ -18,7 +18,7 @@ not on infra sophistication. Things a real pharma QMS would need (auth/RBAC, aud
 | Frontend | React + Redux Toolkit (RTK Query for API calls) | RTK Query ships inside Redux Toolkit — no extra HTTP lib needed |
 | Backend | FastAPI (Python) | mandated |
 | AI orchestration | LangGraph | mandated |
-| LLM | Groq `gemma2-9b-it` (extraction/classification), `llama-3.3-70b-versatile` (chat + reasoning-heavy bonus features) | mandated; split by task cost/latency |
+| LLM | Groq `llama-3.1-8b-instant` (extraction/classification), `llama-3.3-70b-versatile` (chat + reasoning-heavy bonus features) | mandated; split by task cost/latency. The assessment doc named `gemma2-9b-it` — Groq decommissioned it after the doc was written, so it's swapped for `llama-3.1-8b-instant`, the closest still-supported equivalent (small/fast/cheap, same role) |
 | DB | PostgreSQL | JSONB column is a natural fit for storing raw AI extraction output alongside typed columns |
 | Font | Google Inter | mandated |
 | Local infra | `docker-compose` for Postgres only | avoids "install Postgres by hand"; backend/frontend still run natively for fast iteration |
@@ -42,7 +42,7 @@ flowchart LR
         Graphs["LangGraph agents"]
     end
 
-    Groq["Groq API\ngemma2-9b-it / llama-3.3-70b-versatile"]
+    Groq["Groq API\nllama-3.1-8b-instant / llama-3.3-70b-versatile"]
     PG[("PostgreSQL")]
 
     UI <-->|JSON / SSE| API
@@ -85,14 +85,9 @@ complaint_documents
   filename, file_type
   extracted_text text
   uploaded_at    timestamptz
-
-chat_messages
-  id             serial PK
-  complaint_id   FK -> complaints.id
-  role           text   -- user | assistant
-  content        text
-  created_at     timestamptz
 ```
+
+No `chat_messages` table (see §4.2 — chat is stateless, not DB-backed).
 
 SQLAlchemy models + `Base.metadata.create_all()` on startup. No Alembic — single schema,
 no prior deployment to migrate from.
@@ -106,24 +101,33 @@ no prior deployment to migrate from.
 ```mermaid
 flowchart TD
     A([Upload file / paste text]) --> B[load_document\nparse to plain text]
-    B --> C["extract_fields\nGroq gemma2-9b-it, JSON mode"]
+    B --> C["extract_fields\nGroq llama-3.1-8b-instant, JSON mode"]
     C --> D[check_completeness\nrequired-fields ratio]
     D --> E[classify_risk\nseverity + priority suggestion]
     E --> F["detect_duplicates\nfuzzy match vs existing complaints (difflib)"]
-    F --> G[summarize\nGroq gemma2-9b-it, 2-3 sentence summary]
+    F --> G[summarize\nGroq llama-3.1-8b-instant, 2-3 sentence summary]
     G --> H([Return structured JSON])
 ```
 
 - **load_document**: stdlib/`pypdf` for PDF, `python-docx` for DOCX, stdlib `email` for
   `.eml`, plain read for `.txt`. No OCR — doc explicitly says production-grade OCR isn't
-  required, so image-only PDFs are out of scope (assumption noted in README).
+  required, so image-only PDFs are out of scope. The assessment doc mentions "PDFs,
+  emails, or images" as demo material, but the reference UI's own upload panel only
+  advertises `PDF, DOCX, TXT, EML` — so images are for creating demo content (e.g. a
+  screenshot pasted into a doc), not a required upload type. Match the UI, not the prose.
 - **extract_fields**: single Groq call, `response_format={"type": "json_object"}`, prompt
   gives the exact field list from the form + expected types. This is the only node that
   must succeed for the form to populate; the rest are enrichment and can fail soft.
-- **check_completeness**: pure Python — fraction of required fields non-null. No LLM call
-  needed (rung 6: it's a one-liner).
-- **classify_risk**: reuses `gemma2-9b-it` with product/severity context to suggest
-  initial severity + priority (bonus: *AI Risk Classification*).
+- **check_completeness**: pure Python — fraction of a fixed required-field list that's
+  non-null: `customer_name, product_name, batch_lot_number, complaint_type, description`
+  (the fields you'd actually need to start triage). No LLM call needed (rung 6: it's a
+  one-liner).
+- **classify_risk**: reuses `llama-3.1-8b-instant` with product/severity context to suggest
+  initial severity + priority (bonus: *AI Risk Classification*). Prompt constrains output
+  to the same enums the frontend `<select>` uses (`critical|major|minor`,
+  `high|medium|low`). If the model returns anything outside that set, treat it like a
+  failed node — leave the dropdown unset rather than writing an invalid value into a
+  constrained field.
 - **detect_duplicates**: `difflib.SequenceMatcher` over `(product_name, batch_lot_number,
   description)` against recent complaints in Postgres. No embeddings/vector DB — a fuzzy
   string match on a handful of fields is enough to demo the concept at this data scale.
@@ -135,7 +139,7 @@ Progress" bar in the reference UI) via **SSE** from `POST /api/complaints/extrac
 Deliberately **not** built as separate bonus features: *Root Cause Recommendation* and
 *CAPA Recommendation*. They need real complaint history / CAPA data to be credible — with
 synthetic demo data they'd just be generic LLM guesses. Flagged as stretch goals if time
-remains, using `llama-3.3-70b-versatile` (needs more reasoning depth than gemma2-9b-it).
+remains, using `llama-3.3-70b-versatile` (needs more reasoning depth than llama-3.1-8b-instant).
 
 ### 4.2 Chat graph (AI Assistant panel, right side)
 
@@ -149,6 +153,13 @@ flowchart TD
 Single-node graph — a full multi-tool agent isn't warranted for "ask questions about this
 one complaint." LangGraph is still used (mandated + keeps both agents in one consistent
 mental model), just with one LLM node instead of a tool-calling loop.
+
+**Stateless, not DB-backed.** The reference UI shows the assistant active during intake,
+before the complaint is saved — so it can't be keyed off a saved complaint's DB id. The
+frontend holds the current form fields, source text, and conversation history in Redux
+and resends them with every turn; the backend has no `/complaints/{id}/chat` route and no
+`chat_messages` table. Simpler than persisting history for a feature nothing yet reads
+back (no complaint-detail page exists to show past conversations).
 
 ---
 
@@ -172,7 +183,7 @@ backend/
     schemas/complaint.py    # Pydantic request/response models
     api/
       complaints.py         # extract, CRUD, list
-      chat.py                # per-complaint chat endpoint
+      chat.py                # stateless chat endpoint (§4.2)
   requirements.txt
   .env.example
 ```
@@ -184,7 +195,19 @@ backend/
 | POST | `/api/complaints/extract` | upload file or paste text → SSE stream of graph progress + final extracted fields |
 | POST | `/api/complaints` | save (create) reviewed complaint |
 | GET | `/api/complaints` / `/api/complaints/{id}` | list / detail |
-| POST | `/api/complaints/{id}/chat` | ask the AI assistant about a complaint, SSE streamed reply |
+| POST | `/api/complaints/chat` | ask the AI assistant about the complaint currently in the form (fields + history sent by client), SSE streamed reply |
+
+- **Upload validation (trust boundary)**: reject before parsing if the file isn't
+  `pdf/docx/txt/eml` or exceeds 10MB — matches the limits the reference UI already states
+  ("Supported formats... Max file size: 10MB"). Return 4xx with a clear message; don't let
+  bad input reach the parser or spend an LLM call on it.
+- **Streaming mechanics**: `/extract` and `/chat` are POST endpoints returning
+  `text/event-stream`. The browser's `EventSource` API only supports GET with no body, so
+  it can't carry an uploaded file or a chat message — consume both with `fetch()` + a
+  `ReadableStream` reader on the frontend instead, not `EventSource`.
+- **Groq call resilience**: wrap calls in `groq_client.py` with a timeout and one retry on
+  HTTP 429 (rate limit) — free-tier limits are easy to hit live during a demo/interview,
+  and an unhandled 429 would otherwise kill the whole extraction graph.
 
 ---
 
@@ -241,7 +264,7 @@ frontend/
 - Extraction prompt gives the LLM the exact target JSON schema (field names matching the
   DB columns in §3) and instructs it to leave a field `null` rather than guess when the
   source document doesn't mention it — avoids confidently-wrong autofill.
-- `gemma2-9b-it` for extraction/classification/summary: fast, cheap, structured, single-
+- `llama-3.1-8b-instant` for extraction/classification/summary: fast, cheap, structured, single-
   document context — no need for a bigger model.
 - `llama-3.3-70b-versatile` reserved for chat and any stretch reasoning feature (root
   cause / CAPA) where broader inference over the complaint helps.
@@ -265,7 +288,38 @@ frontend/
 
 ---
 
-## 10. Before Writing Code
+## 10. Minimal Tests
+
+No custom test harness or fixtures — just one runnable check per piece of logic that could
+silently break and produce a wrong-looking-right answer:
+
+- `test_document_parser.py` — each parser (pdf/docx/txt/eml) returns non-empty text for a
+  known sample file.
+- `test_completeness.py` — `check_completeness` scores a fully-populated dict as 1.0 and a
+  half-empty one as 0.5, against the fixed required-field list in §4.1.
+- `test_duplicates.py` — `detect_duplicates` flags two near-identical descriptions and
+  does not flag two unrelated ones.
+
+Skip testing the LLM call itself — no assertion on model output is more efficient than
+`assert response is not None` theatre; the useful checks are the deterministic code around it.
+
+## 11. Deliverables Checklist
+
+Straight from the assessment doc's submission requirements — track against this before
+submitting:
+
+- [x] GitHub repository (pushed — `mdsvr/AIVOA-Assessment`)
+- [x] README: setup instructions + project overview (`README.md` — Setup section + overview)
+- [ ] 10–15 min demo video covering:
+  - [ ] working of all implemented AI tools (extraction, completeness, risk classification,
+        duplicate detection, summary, chat)
+  - [ ] frontend workflow (matches reference UI)
+  - [ ] code flow and architecture (§2, §5, §6)
+  - [ ] LangGraph implementation (§4 — walk both graphs node by node)
+  - [ ] key design decisions (§9 out-of-scope list doubles as "why not X" talking points)
+- [ ] Submitted via the Google Form in the assessment doc
+
+## 12. Before Writing Code
 
 Watch the demo video (`https://drive.google.com/file/d/1av2lzDPx8YMSzTrIz7w51HTRWBz3_5Nj`)
 — this plan is built from the assessment doc text and the reference UI screenshot only,

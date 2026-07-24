@@ -1,1 +1,15 @@
 .claude/
+
+# backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# frontend
+node_modules/
+dist/
+build/
+
+.DS_Store

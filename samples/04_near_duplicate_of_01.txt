@@ -1,0 +1,14 @@
+From: Priya Nair, QA Associate, MedSupply Distributors
+Date: July 19, 2026
+
+Subject: Follow-up Complaint - Amoxicillin Capsules 500mg, Batch AMX-2026-0417
+
+Following up on a separate shipment from the same batch as our earlier report. We again
+found capsules from Batch AMX-2026-0417 (Amoxicillin Capsules USP, 500mg) showing
+yellow-brown discoloration and some cracked capsules leaking powder. Roughly 900
+capsules affected in this shipment.
+
+Manufacturing Date: 2026-03-10
+Expiry Date: 2028-03-09
+
+Same issue as previously reported - likely batch-wide stability defect.
