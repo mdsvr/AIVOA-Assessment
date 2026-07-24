@@ -32,7 +32,8 @@ python -m venv .venv
 # .venv\Scripts\activate.bat  # Windows cmd.exe
 # source .venv/bin/activate   # macOS/Linux/Git Bash
 pip install -r requirements.txt
-cp .env.example .env          # then fill in GROQ_API_KEY
+cp .env.example .env          # macOS/Linux/Git Bash; then fill in GROQ_API_KEY
+# copy .env.example .env      # Windows cmd.exe; then edit .env and fill in GROQ_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 

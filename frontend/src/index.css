@@ -41,6 +41,10 @@ button {
   .intake-page {
     grid-template-columns: 1fr;
   }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .panel {
@@ -183,7 +187,7 @@ legend {
   font-size: 0.8rem;
 }
 
-.form-field-control input {
+.form-field-control-suffixed input {
   border-radius: 8px 0 0 8px;
 }
 

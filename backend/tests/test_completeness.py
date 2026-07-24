@@ -11,4 +11,4 @@ def test_check_completeness_full():
 def test_check_completeness_half():
     fields = {f: ("value" if i % 2 == 0 else None) for i, f in enumerate(REQUIRED_FIELDS)}
     result = check_completeness({"fields": fields})
-    assert 0 < result["completeness_score"] < 1
+    assert result["completeness_score"] == 0.6

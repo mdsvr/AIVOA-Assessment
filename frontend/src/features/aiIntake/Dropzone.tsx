@@ -21,6 +21,12 @@ export function Dropzone({ onFileSelected }: { onFileSelected: (file: File) => v
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       onClick={() => inputRef.current?.click()}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          inputRef.current?.click()
+        }
+      }}
       role="button"
       tabIndex={0}
     >

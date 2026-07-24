@@ -17,6 +17,7 @@ export interface ExtractionResult {
   risk_classification: string | null
   ai_summary: string | null
   duplicates: DuplicateMatch[]
+  duplicates_error: string | null
   source_text: string
   source_filename: string
 }

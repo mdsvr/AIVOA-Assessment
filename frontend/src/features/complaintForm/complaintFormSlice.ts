@@ -47,6 +47,7 @@ interface ComplaintFormState {
     product_name: string | null
     customer_name: string | null
   }>
+  duplicatesError: string | null
 }
 
 const initialState: ComplaintFormState = {
@@ -57,6 +58,7 @@ const initialState: ComplaintFormState = {
   riskClassification: null,
   aiSummary: null,
   duplicates: [],
+  duplicatesError: null,
 }
 
 const complaintFormSlice = createSlice({
@@ -78,6 +80,7 @@ const complaintFormSlice = createSlice({
         risk_classification: string | null
         ai_summary: string | null
         duplicates: ComplaintFormState['duplicates']
+        duplicates_error: string | null
         source_text: string
         source_filename: string
       }>,
@@ -87,6 +90,7 @@ const complaintFormSlice = createSlice({
       state.riskClassification = action.payload.risk_classification
       state.aiSummary = action.payload.ai_summary
       state.duplicates = action.payload.duplicates
+      state.duplicatesError = action.payload.duplicates_error
       state.sourceText = action.payload.source_text
       state.sourceFilename = action.payload.source_filename
     },

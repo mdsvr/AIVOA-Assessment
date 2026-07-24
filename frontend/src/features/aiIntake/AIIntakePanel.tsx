@@ -26,6 +26,7 @@ export function AIIntakePanel() {
             risk_classification: result.risk_classification,
             ai_summary: result.ai_summary,
             duplicates: result.duplicates,
+            duplicates_error: result.duplicates_error,
             source_text: result.source_text,
             source_filename: result.source_filename,
           }),

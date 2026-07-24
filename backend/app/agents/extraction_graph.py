@@ -1,3 +1,5 @@
+import json
+import logging
 from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
@@ -19,6 +21,8 @@ from app.schemas.complaint import ExtractedFields
 from app.services import document_parser
 from app.services.duplicates import find_duplicates
 
+logger = logging.getLogger(__name__)
+
 # Cap raw document text sent to the LLM -- demo-scale complaints, not full dossiers.
 MAX_CONTEXT_CHARS = 8000
 
@@ -33,6 +37,7 @@ class ExtractionState(TypedDict, total=False):
     completeness_score: float
     risk_classification: str | None
     duplicates: list[dict]
+    duplicates_error: str | None
     summary: str | None
 
 
@@ -65,11 +70,22 @@ def extract_fields(state: ExtractionState) -> dict:
     response -- wrong date format, a string where a number belongs -- fails extraction
     up front with a clear error, instead of silently emitting a bad value that only
     surfaces later as an opaque 422 on Save/Chat."""
+    document = state["source_text"]
+    if len(document) > MAX_CONTEXT_CHARS:
+        raise ValueError(
+            f"Document exceeds the supported extraction size of {MAX_CONTEXT_CHARS} characters"
+        )
+    # Passed as a JSON-quoted string rather than interpolated beside instruction text --
+    # the document can't break out of its own JSON string value the way it could break
+    # out of a plain-text delimiter (e.g. by containing a fake closing tag). The
+    # untrusted-data handling rule itself lives in EXTRACTION_SYSTEM_PROMPT.
     messages = [
         {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": state["source_text"][:MAX_CONTEXT_CHARS]},
+        {"role": "user", "content": json.dumps({"document": document})},
     ]
     data = groq_client.chat_json(settings.extraction_model, messages)
+    if not isinstance(data, dict) or set(data) - set(EXTRACTION_FIELDS):
+        raise ValueError("Model returned fields outside the expected extraction schema")
     raw = {key: _normalize_null(data.get(key)) for key in EXTRACTION_FIELDS}
     try:
         validated = ExtractedFields(**raw)
@@ -122,9 +138,12 @@ def detect_duplicates(state: ExtractionState) -> dict:
     # to exhaust the connection pool under concurrent extractions.
     db = SessionLocal()
     try:
-        return {"duplicates": find_duplicates(db, state["fields"])}
+        return {"duplicates": find_duplicates(db, state["fields"]), "duplicates_error": None}
     except Exception:
-        return {"duplicates": []}
+        # Distinct from a confirmed empty result: the UI needs to know the check
+        # didn't run, not that it ran and found nothing.
+        logger.exception("Duplicate check failed")
+        return {"duplicates": [], "duplicates_error": "Duplicate check unavailable"}
     finally:
         db.close()
 

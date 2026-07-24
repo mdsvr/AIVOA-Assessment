@@ -63,6 +63,7 @@ def _run_extraction_stream(
             "risk_classification": final_state.get("risk_classification"),
             "ai_summary": final_state.get("summary"),
             "duplicates": final_state.get("duplicates", []),
+            "duplicates_error": final_state.get("duplicates_error"),
             "source_text": final_state.get("source_text", ""),
             "source_filename": filename,
         }

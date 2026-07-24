@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ExtractedFields(BaseModel):
@@ -68,8 +68,10 @@ class ChatHistoryMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str
+    # Bounds are generous for real usage but reject pathological payloads (e.g. a
+    # multi-MB "message") before they reach the LLM call.
+    message: str = Field(max_length=4000)
     context: ExtractedFields | None = None
-    source_text: str | None = None
+    source_text: str | None = Field(default=None, max_length=20000)
     ai_summary: str | None = None
-    history: list[ChatHistoryMessage] = []
+    history: list[ChatHistoryMessage] = Field(default_factory=list, max_length=40)

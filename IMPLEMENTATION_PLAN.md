@@ -299,6 +299,10 @@ silently break and produce a wrong-looking-right answer:
   half-empty one as 0.5, against the fixed required-field list in §4.1.
 - `test_duplicates.py` — `detect_duplicates` flags two near-identical descriptions and
   does not flag two unrelated ones.
+- `test_date_coercion.py` — `ExtractedFields` accepts ISO dates, rejects non-ISO strings,
+  and tolerates missing dates.
+- `test_field_normalization.py` — `_normalize_null` maps the model's stringified-null
+  variants (`"null"`, `"n/a"`, `"unknown"`, ...) to `None` and leaves real values alone.
 
 Skip testing the LLM call itself — no assertion on model output is more efficient than
 `assert response is not None` theatre; the useful checks are the deterministic code around it.

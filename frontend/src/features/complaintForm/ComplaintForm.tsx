@@ -137,6 +137,7 @@ export function ComplaintForm() {
           {Math.round(state.duplicates[0].similarity * 100)}% similar)
         </div>
       )}
+      {state.duplicatesError && <div className="duplicate-warning">{state.duplicatesError}</div>}
 
       <fieldset>
         <legend>1. Origin &amp; Customer Details</legend>
